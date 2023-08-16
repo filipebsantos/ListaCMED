@@ -127,6 +127,27 @@ if not db_file:
     conn.commit()
     conn.close()
 
+sinonimos_substancia = {
+    "DIPIRONA MONOIDRATADA": "DIPIRONA",
+    "AMOXICILINA TRIHIDRATADA": "AMOXICILINA",
+    "AMOXICILINA TRI-HIDRATADA": "AMOXICILINA",
+    "MALEATO DE CLORFENAMINA": "MALEATO DE CLORFENIRAMINA",
+    "DEXCLORFENIRAMINA": "MALEATO DE DEXCLORFENIRAMINA",
+    "CAFEÍNA ANIDRA": "CAFEÍNA"
+}
+
+# Função para normalizar as substancias
+def normaliza_substancia(substancia_str):
+    listaSubstancia = substancia_str.split(';')
+
+    substanciasNormalizada = []
+    for subs in listaSubstancia:
+        substanciaNormalizada = sinonimos_substancia.get(subs, subs)
+        substanciasNormalizada.append(substanciaNormalizada)
+    
+    substanciasNormalizada = sorted(substanciasNormalizada)
+    return ';'.join(substanciasNormalizada)
+
 # Função para mapear valores 'Sim' e 'Não' para 1 e 0
 def map_sim_nao(value):
     return 1 if value == 'Sim' else 0
@@ -226,23 +247,28 @@ for row in tqdm(sheet.iter_rows(min_row=2, values_only=True), desc="Processando 
         conn.commit()
 
 # PROCESSA AS CLASSES TERAPEUTICAS
-for row in tqdm(sheet.iter_rows(min_row=2, values_only=True), desc="Processando CLASSES TERAPEUTICAS"):
-    classe_terapeutica = row[10]  # Décima coluna contém o valor a ser dividido
+for index, row in enumerate(tqdm(sheet.iter_rows(min_row=2, values_only=True), desc="Processando CLASSES TERAPEUTICAS"), start=2):
+    try:
+        classe_terapeutica = row[10]  # Décima coluna contém o valor a ser dividido
 
-    # Dividir o valor usando o caractere '-' e remover espaços em branco
-    sub_string = classe_terapeutica.split('-')
-    
-    if len(sub_string) >= 2:
-        codigo_classe = sub_string[0].strip()
-        descricao_classe = '-'.join(sub_string[1:]).strip()
+        # Dividir o valor usando o caractere '-' e remover espaços em branco
+        sub_string = classe_terapeutica.split('-')
 
-        # Verificar se o CodigoClasse já existe no banco de dados
-        cursor.execute("SELECT ClasseTerapeuticaID FROM CLASSES_TERAPEUTICAS WHERE CodigoClasse = ?", (codigo_classe,))
-        existing_class = cursor.fetchone()
+        if len(sub_string) >= 2:
+            codigo_classe = sub_string[0].strip()
+            descricao_classe = '-'.join(sub_string[1:]).strip()
 
-        if not existing_class:
-            cursor.execute("INSERT INTO CLASSES_TERAPEUTICAS (CodigoClasse, DescricaoClasse) VALUES (?, ?)", (codigo_classe, descricao_classe))
-            conn.commit()
+            # Verificar se o CodigoClasse já existe no banco de dados
+            cursor.execute("SELECT ClasseTerapeuticaID FROM CLASSES_TERAPEUTICAS WHERE CodigoClasse = ?", (codigo_classe,))
+            existing_class = cursor.fetchone()
+
+            if not existing_class:
+                cursor.execute("INSERT INTO CLASSES_TERAPEUTICAS (CodigoClasse, DescricaoClasse) VALUES (?, ?)", (codigo_classe, descricao_classe))
+                conn.commit()
+
+    except Exception as e:
+        print(f"Erro na linha {index}: {e}")
+
 
 # PROCESSA OS PRODUTOS
 for row in tqdm(sheet.iter_rows(min_row=2, values_only=True), desc="Processando PRODUTOS"):
